@@ -5,15 +5,27 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch",
+            "name": "Encode WAV to PNG",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
+            "program": "${workspaceFolder}/musicimage.go",
             "env": {},
             "args": [
-                "/Users/peterwunder/Music/Leviathan MusicImage.wav", 
-                "/Users/peterwunder/Music/Leviathan MusicImage.png"
+                "/Users/peterwunder/Music/musicimage/leviathan11025.wav", 
+                "/Users/peterwunder/Music/musicimage/leviathan11025.png"
+            ]
+        },
+        {
+            "name": "Decode PNG to WAV",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/musicimage.go",
+            "env": {},
+            "args": [
+                "/Users/peterwunder/Music/musicimage/leviathan11025.png", 
+                "/Users/peterwunder/Music/musicimage/leviathan11025_decoded.wav"
             ]
         }
     ]

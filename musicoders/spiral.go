@@ -1,12 +1,8 @@
-package micoders
+package musicoders
 
 import (
-	// "bufio"
 	"fmt"
-	// "image"
 	"math"
-	// "os"
-	// flags "github.com/jessevdk/go-flags"
 )
 
 func max(is ...float64) float64 {
@@ -30,7 +26,6 @@ type spiral struct {
 
 func NewSpiral(diameter uint32, separation float64) spiral {
 	sp := spiral{}
-	sp.Center = IntegralPoint{127, 127}
 	sp.Separation = separation
 	sp.StartRadius = float64(diameter) / 2
 	sp.Theta = 0
@@ -48,12 +43,12 @@ func (s spiral) String() string {
 // returns a Point with float64 coordinates
 func (s *spiral) next() Point {
 	p := Point{}
-
-	s.Theta += s.Separation / s.Radius
-	s.Radius = s.StartRadius + s.Separation*s.Theta/math.Pi
-
 	p.X = s.Radius*math.Cos(s.Theta) + float64(s.Center.X)
 	p.Y = s.Radius*math.Sin(s.Theta) + float64(s.Center.Y)
+
+	// advance after constructing Point
+	s.Theta += s.Separation / s.Radius
+	s.Radius = s.StartRadius + s.Separation*s.Theta/math.Pi
 
 	return p
 }

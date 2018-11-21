@@ -1,4 +1,4 @@
-package micoders
+package musicoders
 
 import (
 	"math"
