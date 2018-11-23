@@ -16,6 +16,8 @@ type Encoder struct {
 
 	Diameter   uint32
 	Separation float64
+
+	DeepColor bool
 }
 
 func (e Encoder) Encode(OutputImage string) bool {
@@ -28,6 +30,14 @@ func (e Encoder) Encode(OutputImage string) bool {
 
 	reader := wav.NewReader(wavFile)
 	format, err := reader.Format()
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	if format.BitsPerSample > 24 {
+		fmt.Println("WAV files with more than 24 bits per sample are not supported.")
+		return false
+	}
 
 	offset := int(math.Pow(2, float64(format.BitsPerSample)) / 2)
 
@@ -56,7 +66,7 @@ func (e Encoder) Encode(OutputImage string) bool {
 
 			col := color.RGBA{b1, b2, b3, 0xff}
 
-			if totalSamples > 200000 && totalSamples < 200100 {
+			if totalSamples > 200000 && totalSamples < 200064 {
 				fmt.Printf("0x%X: %d %d %d\n", val, b1, b2, b3)
 				fmt.Printf("%d %d %d\n", sample.Values[0], offset, int(sample.Values[0])+offset)
 				fmt.Println("----------")

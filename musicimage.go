@@ -17,7 +17,9 @@ func main() {
 		Diameter   uint32  `short:"d" long:"diameter" default:"64" description:"Diameter of vinyl label. in pixels"`
 		Separation float64 `short:"s" long:"separation" default:"1" description:"Distance between spiral turns, in pixels"`
 		SampleRate uint32  `short:"r" long:"rate" default:"11025" description:"Sample rate of destination audio file, in Hz"`
-		Turns      float64 `short:"t" long:"turns" default:"100" description:"Only used for debugging."`
+		Turns      float64 `short:"t" long:"turns" default:"100" description:"Only used for debugging"`
+
+		DeepColor bool `short:"D" long:"deep" default:"false" description:"Construct 64 bit PNG to store more data in a single pixel"`
 	}
 	_, err := flags.Parse(&opts)
 	if err != nil {
@@ -43,7 +45,7 @@ func main() {
 	if infileIsSound && outfileIsImage {
 		fmt.Println("encode wav to png")
 
-		enc := Encoder{infile, opts.Diameter, opts.Separation}
+		enc := Encoder{infile, opts.Diameter, opts.Separation, opts.DeepColor}
 
 		if enc.Encode(opts.Args.OutFile) {
 			fmt.Println("Encoded successfully!")

@@ -25,7 +25,8 @@
             "env": {},
             "args": [
                 "/Users/peterwunder/Music/musicimage/leviathan11025.png", 
-                "/Users/peterwunder/Music/musicimage/leviathan11025_decoded.wav"
+                "/Users/peterwunder/Music/musicimage/leviathan11025_decoded.wav",
+                "-D"
             ]
         }
     ]
