@@ -4,40 +4,37 @@ import (
 	"fmt"
 	wav "github.com/youpy/go-wav"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
+	"image/color"
+	// _ "image/gif"
+	// _ "image/jpeg"
 	_ "image/png"
 	"math"
 	"os"
 )
 
-// Decoder what
 type Decoder struct {
-	InputImage string
-
-	Diameter   uint32
-	Separation float64
-
-	SampleRate uint32
-	ChannelNum uint16
-	SampleBits uint16
+	SharedOptions
 }
 
-// Decode wat
-func (d Decoder) Decode(OutputSound string) bool {
-	imgFile, err := os.Open(d.InputImage)
+// func (d Decoder) Decode(OutputSound string) bool {
+
+func (d Decoder) Decode() error {
+	imgFile, err := os.Open(d.InFile)
 	if err != nil {
-		fmt.Println(err.Error())
-		return false
+		return err
 	}
 	defer imgFile.Close()
 
-	wavFile, err := os.Create(OutputSound)
+	wavFile, err := os.Create(d.OutFile)
 	if err != nil {
-		fmt.Println(err.Error())
-		return false
+		return err
 	}
 	defer wavFile.Close()
+
+	cnf, _, err := image.DecodeConfig(imgFile)
+
+	deepColor := d.DeepColor || cnf.ColorModel == color.RGBA64Model || cnf.ColorModel == color.NRGBA64Model
+	fmt.Printf("Deep Color: %t\n", deepColor)
 
 	img, _, err := image.Decode(imgFile)
 	imgSize := img.Bounds().Size()
@@ -49,9 +46,9 @@ func (d Decoder) Decode(OutputSound string) bool {
 	var numSamples uint32 = 7 * 60 * 44100
 	var samples = make([]wav.Sample, numSamples)
 
-	offset := int(math.Pow(2, float64(d.SampleBits)) / 2)
+	offset := int(math.Pow(2, float64(d.DecoderOptions.BitDepth)) / 2)
 
-	writer := wav.NewWriter(wavFile, numSamples, d.ChannelNum, d.SampleRate, d.SampleBits)
+	writer := wav.NewWriter(wavFile, numSamples, d.DecoderOptions.ChannelNum, d.DecoderOptions.SampleRate, d.DecoderOptions.BitDepth)
 
 	var sampleIdx uint32
 
@@ -93,9 +90,8 @@ func (d Decoder) Decode(OutputSound string) bool {
 	fmt.Println("Writing samples to file…")
 	err = writer.WriteSamples(samples[:sampleIdx])
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 
-	return true
+	return nil
 }

@@ -12,8 +12,11 @@
             "program": "${workspaceFolder}/musicimage.go",
             "env": {},
             "args": [
-                "/Users/peterwunder/Music/musicimage/leviathan11025.wav", 
-                "/Users/peterwunder/Music/musicimage/leviathan11025.png"
+                "encode",
+                "-i", "/Users/peterwunder/Music/musicimage/jein-mono-8-11025.wav", 
+                "-o", "/Users/peterwunder/Music/musicimage/jein.png",
+				"-s", "0.5",
+                "-D"
             ]
         },
         {
@@ -24,9 +27,10 @@
             "program": "${workspaceFolder}/musicimage.go",
             "env": {},
             "args": [
-                "/Users/peterwunder/Music/musicimage/leviathan11025.png", 
-                "/Users/peterwunder/Music/musicimage/leviathan11025_decoded.wav",
-                "-D"
+                "decode",
+                "-i", "/Users/peterwunder/Music/musicimage/jein.png", 
+                "-o", "/Users/peterwunder/Music/musicimage/jein-decoded.png",
+				"-s", "0.5"
             ]
         }
     ]

@@ -1,6 +1,7 @@
 package musicoders
 
 import (
+	"errors"
 	"fmt"
 	wav "github.com/youpy/go-wav"
 	"image"
@@ -12,88 +13,147 @@ import (
 )
 
 type Encoder struct {
-	InputSound string
-
-	Diameter   uint32
-	Separation float64
-
-	DeepColor bool
+	SharedOptions
 }
 
-func (e Encoder) Encode(OutputImage string) bool {
-	wavFile, err := os.Open(e.InputSound)
+func (e Encoder) Encode() error {
+	wavFile, err := os.Open(e.InFile)
 	if err != nil {
-		fmt.Println(err.Error())
-		return false
+		return err
 	}
 	defer wavFile.Close()
 
 	reader := wav.NewReader(wavFile)
 	format, err := reader.Format()
 	if err != nil {
-		fmt.Println(err.Error())
-		return false
-	}
-	if format.BitsPerSample > 24 {
-		fmt.Println("WAV files with more than 24 bits per sample are not supported.")
-		return false
+		return err
 	}
 
-	offset := int(math.Pow(2, float64(format.BitsPerSample)) / 2)
+	var totalSamples int
+
+	// color depth in bits per pixel, ignoring alpha channel
+	var colorDepth uint32 = 24
+	useDeepColor := e.DeepColor
+	if useDeepColor {
+		colorDepth *= 2
+	}
+
+	// how many samples are going to be used per pixel (alpha is always 100%)
+	samplesPerPixel := colorDepth / uint32(format.BitsPerSample) / uint32(format.NumChannels)
+
+	fmt.Println(colorDepth, format.BitsPerSample, format.NumChannels)
+	fmt.Println(colorDepth, uint32(format.BitsPerSample), uint32(format.NumChannels))
+	fmt.Println(samplesPerPixel)
+
+	if samplesPerPixel < 1 {
+		return errors.New("Enable Deep Color Mode (-D) for this WAV format")
+	}
+
+	if format.NumChannels > 2 {
+		return errors.New("WAV files with more than 2 channels are not supported")
+	} else if format.BitsPerSample < 8 || format.BitsPerSample > 24 || format.BitsPerSample%8 != 0 {
+		return errors.New("Only WAV files with 8, 16, or 24 bits per sample are supported")
+	} else if format.BitsPerSample == 16 && !useDeepColor {
+		return errors.New("Use Deep Color Mode (-D) for 16-bit WAV files")
+	} else if format.BitsPerSample == 8 && format.NumChannels == 2 && !useDeepColor {
+		return errors.New("Use Deep Color Mode (-D) for 8-bit stereo WAV files")
+	} else if format.BitsPerSample == 16 && format.NumChannels == 2 && useDeepColor {
+		return errors.New("16-bit stereo WAV files are not supported; change the bit depth to either 8 or 24 bit or downmix the file to mono first")
+	}
 
 	rect := image.Rect(0, 0, 2048, 2048)
-	img := image.NewRGBA(rect)
+
+	var img image.RGBA
+	var img64 image.RGBA64
+
+	if useDeepColor {
+		img64 = *image.NewRGBA64(rect)
+	} else {
+		img = *image.NewRGBA(rect)
+	}
 
 	spiral := NewSpiral(e.Diameter, e.Separation)
 	spiral.Center = IntegralPoint{1024, 1024}
 
-	var totalSamples uint32
-
+	var pixelInt uint64
+	var shiftedBy uint16
 	for {
-		samples, err := reader.ReadSamples()
+		// 48 is the LCM of 8, 16, 24, and 48
+		samples, err := reader.ReadSamples(samplesPerPixel)
 		if err == io.EOF {
 			break
 		}
 
-		for _, sample := range samples {
-			p := spiral.Next()
+		isLastIteration := len(samples) < int(samplesPerPixel)
 
-			val := uint32(sample.Values[0])
+		for sIdx := 0; sIdx < len(samples); sIdx++ {
+			sample := samples[sIdx]
 
-			b1 := uint8(val & 0xff0000 >> 16)
-			b2 := uint8(val & 0x00ff00 >> 8)
-			b3 := uint8(val & 0x0000ff)
+			pixelInt <<= format.BitsPerSample
+			shiftedBy += format.BitsPerSample
+			pixelInt |= uint64(sample.Values[0])
 
-			col := color.RGBA{b1, b2, b3, 0xff}
-
-			if totalSamples > 200000 && totalSamples < 200064 {
-				fmt.Printf("0x%X: %d %d %d\n", val, b1, b2, b3)
-				fmt.Printf("%d %d %d\n", sample.Values[0], offset, int(sample.Values[0])+offset)
-				fmt.Println("----------")
+			if format.NumChannels == 2 {
+				pixelInt <<= format.BitsPerSample
+				shiftedBy += format.BitsPerSample
+				pixelInt |= uint64(sample.Values[0])
 			}
 
-			img.Set(p.X, p.Y, col)
+			// if e.DeepColor {
+			// 	fmt.Printf("%048b\n", pixelInt)
+			// } else {
+			// 	fmt.Printf("%024b\n", pixelInt)
+			// }
 
 			totalSamples++
 
-			// fmt.Printf("(%d) L/R: %d/%d\n", i, reader.IntValue(sample, 0), reader.IntValue(sample, 1))
+			if uint32(shiftedBy) == colorDepth || isLastIteration {
+				p := spiral.Next()
+				if useDeepColor {
+					r := uint16(pixelInt & 0xffff00000000 >> 32)
+					g := uint16(pixelInt & 0x0000ffff0000 >> 16)
+					b := uint16(pixelInt & 0x00000000ffff)
+
+					col := color.RGBA64{r, g, b, 0xffff}
+
+					img64.Set(p.X, p.Y, col)
+				} else {
+					r := uint8(pixelInt & 0xff0000 >> 16)
+					g := uint8(pixelInt & 0x00ff00 >> 8)
+					b := uint8(pixelInt & 0x0000ff)
+
+					col := color.RGBA{r, g, b, 0xff}
+
+					img.Set(p.X, p.Y, col)
+				}
+
+				pixelInt &= 0
+				shiftedBy &= 0
+			}
 		}
 	}
 
 	fmt.Printf("%d samples written\n", totalSamples)
 
 	radRounded := int(math.Ceil(spiral.Radius))
-
 	subRect := image.Rect(spiral.Center.X-radRounded, spiral.Center.Y-radRounded, spiral.Center.X+radRounded, spiral.Center.Y+radRounded)
 
-	f, err := os.Create(OutputImage)
+	fmt.Println(radRounded)
+	fmt.Println(subRect)
+
+	// return true
+
+	f, err := os.Create(e.OutFile)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 	defer f.Close()
 
-	png.Encode(f, img.SubImage(subRect))
+	if useDeepColor {
+		png.Encode(f, img64.SubImage(subRect))
+	} else {
+		png.Encode(f, img.SubImage(subRect))
+	}
 
-	return true
+	return nil
 }
