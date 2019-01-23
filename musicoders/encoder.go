@@ -3,6 +3,7 @@ package musicoders
 import (
 	"errors"
 	"fmt"
+	"github.com/SamusAranX/musicimage/musicoders/curves"
 	wav "github.com/youpy/go-wav"
 	"image"
 	"image/color"
@@ -53,12 +54,12 @@ func (e Encoder) Encode() error {
 		return errors.New("WAV files with more than 2 channels are not supported")
 	} else if format.BitsPerSample < 8 || format.BitsPerSample > 24 || format.BitsPerSample%8 != 0 {
 		return errors.New("Only WAV files with 8, 16, or 24 bits per sample are supported")
+	} else if format.BitsPerSample == 16 && format.NumChannels == 2 {
+		return errors.New("16-bit stereo WAV files are not supported in any mode; please change the bit depth to either 8 or 24 bit or downmix the file to mono first")
 	} else if format.BitsPerSample == 16 && !useDeepColor {
 		return errors.New("Use Deep Color Mode (-D) for 16-bit WAV files")
-	} else if format.BitsPerSample == 8 && format.NumChannels == 2 && !useDeepColor {
-		return errors.New("Use Deep Color Mode (-D) for 8-bit stereo WAV files")
-	} else if format.BitsPerSample == 16 && format.NumChannels == 2 && useDeepColor {
-		return errors.New("16-bit stereo WAV files are not supported; change the bit depth to either 8 or 24 bit or downmix the file to mono first")
+	} else if format.NumChannels == 2 && !useDeepColor {
+		return errors.New("Use Deep Color Mode (-D) for stereo WAV files")
 	}
 
 	rect := image.Rect(0, 0, 2048, 2048)
@@ -72,19 +73,22 @@ func (e Encoder) Encode() error {
 		img = *image.NewRGBA(rect)
 	}
 
-	spiral := NewSpiral(e.Diameter, e.Separation)
-	spiral.Center = IntegralPoint{1024, 1024}
+	spiral := curves.NewSpiral(e.Diameter, e.Separation)
+	spiral.Center = curves.IntegralPoint{X: 1024, Y: 1024}
 
 	var pixelInt uint64
 	var shiftedBy uint16
+	var isLastIteration = false
+
+	fmt.Printf("Samples per pixel: %d\n", samplesPerPixel)
+
 	for {
 		// 48 is the LCM of 8, 16, 24, and 48
 		samples, err := reader.ReadSamples(samplesPerPixel)
 		if err == io.EOF {
+			isLastIteration = true
 			break
 		}
-
-		isLastIteration := len(samples) < int(samplesPerPixel)
 
 		for sIdx := 0; sIdx < len(samples); sIdx++ {
 			sample := samples[sIdx]
@@ -99,12 +103,6 @@ func (e Encoder) Encode() error {
 				pixelInt |= uint64(sample.Values[0])
 			}
 
-			// if e.DeepColor {
-			// 	fmt.Printf("%048b\n", pixelInt)
-			// } else {
-			// 	fmt.Printf("%024b\n", pixelInt)
-			// }
-
 			totalSamples++
 
 			if uint32(shiftedBy) == colorDepth || isLastIteration {
@@ -115,7 +113,6 @@ func (e Encoder) Encode() error {
 					b := uint16(pixelInt & 0x00000000ffff)
 
 					col := color.RGBA64{r, g, b, 0xffff}
-
 					img64.Set(p.X, p.Y, col)
 				} else {
 					r := uint8(pixelInt & 0xff0000 >> 16)
@@ -123,12 +120,11 @@ func (e Encoder) Encode() error {
 					b := uint8(pixelInt & 0x0000ff)
 
 					col := color.RGBA{r, g, b, 0xff}
-
 					img.Set(p.X, p.Y, col)
 				}
 
-				pixelInt &= 0
-				shiftedBy &= 0
+				pixelInt = 0
+				shiftedBy = 0
 			}
 		}
 	}

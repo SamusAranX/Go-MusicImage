@@ -1,52 +1,67 @@
-// Copyright Brian Starkey <stark3y@gmail.com> 2017
-
-// image/color.Color implementation for HSV representation
 package hsv
 
 import (
 	"image/color"
+	"math"
 )
 
 // HSVColor defines a color in the Hue-Saturation-Value scheme.
-// Hue is a value [0 - 360) specifying the color
-// Saturation is a value [0 - 255] specifying the strength of the color
-// Value is a value [0 - 255] specifying the brightness of the color
+// Hue is a double [0 - 360.0] specifying the color
+// Saturation is a double [0 - 100.0] specifying the strength of the color
+// Value is a double [0 - 100.0] specifying the brightness of the color
 type HSVColor struct {
-	H    uint16
-	S, V uint8
+	H    float64
+	S, V float64
 }
 
-func (h HSVColor) rgba() (r, g, b, a uint32) {
-	// Direct implementation of the graph in this image:
-	// https://en.wikipedia.org/wiki/HSL_and_HSV#/media/File:HSV-RGB-comparison.svg
-	max := uint32(h.V) * 255
-	min := uint32(h.V) * uint32(255-h.S)
+func (hsv HSVColor) rgba() (r, g, b float64) {
+	h := math.Mod(hsv.H, 360)
+	s := hsv.S / 100
+	v := hsv.V / 100
 
-	h.H %= 360
-	segment := h.H / 60
-	offset := uint32(h.H % 60)
-	mid := ((max - min) * offset) / 60
-
-	switch segment {
-	case 0:
-		return max, min + mid, min, 0xffff
-	case 1:
-		return max - mid, max, min, 0xffff
-	case 2:
-		return min, max, min + mid, 0xffff
-	case 3:
-		return min, max - mid, max, 0xffff
-	case 4:
-		return min + mid, min, max, 0xffff
-	case 5:
-		return max, min, max - mid, 0xffff
+	if hsv.S > 100 || hsv.V > 100 {
+		panic("Invalid saturation or value values")
 	}
 
-	return 0, 0, 0, 0xffff
+	if s == 0 {
+		return v, v, v
+	}
+
+	h /= 60
+	i, f := math.Modf(h)
+
+	p := v * (1 - s)
+	q := v * (1 - s*f)
+	t := v * (1 - s*(1-f))
+
+	switch i {
+	case 0:
+		return v, t, p
+	case 1:
+		return q, v, p
+	case 2:
+		return p, v, t
+	case 3:
+		return p, q, v
+	case 4:
+		return t, p, v
+	default:
+		return v, p, q
+	}
 }
 
-func (h HSVColor) RGBA() color.RGBA {
-	r, g, b, _ := h.rgba()
+func (hsv HSVColor) RGBA() color.RGBA {
+	fr, fg, fb := hsv.rgba()
+	r := uint8(math.Round(fr * 0xff))
+	g := uint8(math.Round(fg * 0xff))
+	b := uint8(math.Round(fb * 0xff))
+	return color.RGBA{r, g, b, 0xff}
+}
 
-	return color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), 0xff}
+func (hsv HSVColor) RGBA64() color.RGBA64 {
+	fr, fg, fb := hsv.rgba()
+	r := uint16(math.Round(fr * 0xffff))
+	g := uint16(math.Round(fg * 0xffff))
+	b := uint16(math.Round(fb * 0xffff))
+	return color.RGBA64{r, g, b, 0xffff}
 }

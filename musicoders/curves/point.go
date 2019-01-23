@@ -1,4 +1,4 @@
-package musicoders
+package curves
 
 import (
 	"math"

@@ -1,21 +1,11 @@
-package musicoders
+package curves
 
 import (
 	"fmt"
 	"math"
 )
 
-func max(is ...float64) float64 {
-	max := is[0]
-	for _, i := range is[1:] {
-		if i > max {
-			max = i
-		}
-	}
-	return max
-}
-
-type spiral struct {
+type Spiral struct {
 	Center IntegralPoint
 
 	lastPoint  IntegralPoint
@@ -24,24 +14,27 @@ type spiral struct {
 	Separation, StartRadius, Theta, Radius float64
 }
 
-func NewSpiral(diameter uint32, separation float64) spiral {
-	sp := spiral{}
+func NewSpiral(diameter uint32, separation float64) Spiral {
+	sp := Spiral{}
 	sp.Separation = separation
 	sp.StartRadius = float64(diameter) / 2
 	sp.Theta = 0
-	sp.Radius = max(1, sp.StartRadius)
+	sp.Radius = sp.StartRadius
+	if sp.Radius < 1 {
+		sp.Radius = 1
+	}
 
 	sp.lastPoints = map[IntegralPoint]struct{}{}
 
 	return sp
 }
 
-func (s spiral) String() string {
+func (s Spiral) String() string {
 	return fmt.Sprintf("{%d %d} %.2f", s.Center.X, s.Center.Y, s.Radius)
 }
 
 // returns a Point with float64 coordinates
-func (s *spiral) next() Point {
+func (s *Spiral) next() Point {
 	p := Point{}
 	p.X = s.Radius*math.Cos(s.Theta) + float64(s.Center.X)
 	p.Y = s.Radius*math.Sin(s.Theta) + float64(s.Center.Y)
@@ -54,7 +47,7 @@ func (s *spiral) next() Point {
 }
 
 // returns an IntegralPoint with int coordinates
-func (s *spiral) Next() IntegralPoint {
+func (s *Spiral) Next() IntegralPoint {
 	pr := s.next().Round()
 
 	_, exists := s.lastPoints[pr]

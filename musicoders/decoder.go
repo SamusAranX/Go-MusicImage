@@ -2,11 +2,10 @@ package musicoders
 
 import (
 	"fmt"
+	"github.com/SamusAranX/musicimage/musicoders/curves"
 	wav "github.com/youpy/go-wav"
 	"image"
 	"image/color"
-	// _ "image/gif"
-	// _ "image/jpeg"
 	_ "image/png"
 	"math"
 	"os"
@@ -15,8 +14,6 @@ import (
 type Decoder struct {
 	SharedOptions
 }
-
-// func (d Decoder) Decode(OutputSound string) bool {
 
 func (d Decoder) Decode() error {
 	imgFile, err := os.Open(d.InFile)
@@ -31,60 +28,91 @@ func (d Decoder) Decode() error {
 	}
 	defer wavFile.Close()
 
-	cnf, _, err := image.DecodeConfig(imgFile)
-
-	deepColor := d.DeepColor || cnf.ColorModel == color.RGBA64Model || cnf.ColorModel == color.NRGBA64Model
-	fmt.Printf("Deep Color: %t\n", deepColor)
-
 	img, _, err := image.Decode(imgFile)
 	imgSize := img.Bounds().Size()
 
-	spiral := NewSpiral(d.Diameter, d.Separation)
-	spiral.Center = IntegralPoint{imgSize.X / 2, imgSize.Y / 2}
+	useDeepColor := d.DeepColor || img.ColorModel() == color.RGBA64Model || img.ColorModel() == color.NRGBA64Model
+	var colorDepth uint32 = 24
+	if useDeepColor {
+		colorDepth *= 2
+	}
 
-	// allocate enough space for 7 minutes of 44100 Hz audio
-	var numSamples uint32 = 7 * 60 * 44100
+	bitsPerSample := d.DecoderOptions.BitDepth
+	channelNum := d.DecoderOptions.ChannelNum
+	sampleRate := d.DecoderOptions.SampleRate
+	spiral := curves.NewSpiral(d.Diameter, d.Separation)
+	spiral.Center = curves.IntegralPoint{X: imgSize.X / 2, Y: imgSize.Y / 2}
+
+	sampleMask := uint64(math.Pow(2, float64(bitsPerSample)) - 1)
+
+	// allocate enough space for 10 minutes of 44100 Hz stereo audio
+	var numSamples uint32 = 2 * 10 * 60 * 44100
 	var samples = make([]wav.Sample, numSamples)
 
-	offset := int(math.Pow(2, float64(d.DecoderOptions.BitDepth)) / 2)
+	// offset := int(math.Pow(2, float64(d.DecoderOptions.BitDepth)) / 2)
 
-	writer := wav.NewWriter(wavFile, numSamples, d.DecoderOptions.ChannelNum, d.DecoderOptions.SampleRate, d.DecoderOptions.BitDepth)
+	writer := wav.NewWriter(wavFile, numSamples, channelNum, sampleRate, bitsPerSample)
 
 	var sampleIdx uint32
 
+	var pixelInt uint64
+	var shiftedBy uint32
 	for {
 		p := spiral.Next()
 
 		col := img.At(p.X, p.Y)
 		_r, _g, _b, _a := col.RGBA()
 
-		r := uint32(math.Round(float64(_r) / 65535.0 * 255.0))
-		g := uint32(math.Round(float64(_g) / 65535.0 * 255.0))
-		b := uint32(math.Round(float64(_b) / 65535.0 * 255.0))
-		a := uint32(math.Round(float64(_a) / 65535.0 * 255.0))
-
-		if a < 255 || (r == 128 && g == 128 && b == 128) || sampleIdx >= 10000000 {
+		if _a < 32768 || sampleIdx >= 10000000 {
 			fmt.Printf("Alpha detected, reached end of track at %d samples\n", sampleIdx)
 			break
 		}
 
-		val := uint32(0x000000)
-		val |= r << 16
-		val |= g << 8
-		val |= b
-
-		s := wav.Sample{}
-		s.Values[0] = int(val)
-		s.Values[1] = int(val)
-
-		if sampleIdx > 200000 && sampleIdx < 200100 {
-			fmt.Printf("0x%X: %d %d %d\n", val, r, g, b)
-			fmt.Printf("%d %d %d\n", val, offset, int(val)-offset)
-			fmt.Println("----------")
+		if !useDeepColor {
+			_r = uint32(math.Round(float64(_r) / 65535.0 * 255.0))
+			_g = uint32(math.Round(float64(_g) / 65535.0 * 255.0))
+			_b = uint32(math.Round(float64(_b) / 65535.0 * 255.0))
 		}
 
-		samples[sampleIdx] = s
-		sampleIdx++
+		pixelInt <<= bitsPerSample
+		pixelInt |= uint64(_r)
+		shiftedBy += uint32(bitsPerSample)
+
+		pixelInt <<= bitsPerSample
+		pixelInt |= uint64(_g)
+		shiftedBy += uint32(bitsPerSample)
+
+		pixelInt <<= bitsPerSample
+		pixelInt |= uint64(_b)
+		shiftedBy += uint32(bitsPerSample)
+
+		if shiftedBy == colorDepth {
+			for shiftedBy > 0 {
+				shiftedBy -= uint32(bitsPerSample)
+
+				s := wav.Sample{}
+
+				// fmt.Printf("%024b\n", pixelInt)
+				sampleVal := pixelInt >> uint64(shiftedBy)
+				sampleValInt := int(sampleVal & sampleMask)
+
+				// fmt.Printf("%024b\n", sampleVal)
+				s.Values[0] = sampleValInt
+
+				if channelNum == 2 {
+					shiftedBy -= uint32(bitsPerSample)
+					s.Values[1] = int(pixelInt >> uint64(shiftedBy))
+				} else {
+					s.Values[1] = sampleValInt
+				}
+
+				samples[sampleIdx] = s
+				sampleIdx += uint32(channelNum)
+			}
+
+			pixelInt = 0
+			shiftedBy = 0
+		}
 	}
 
 	fmt.Println("Writing samples to file…")

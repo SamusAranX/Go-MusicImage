@@ -2,55 +2,69 @@ package musicoders
 
 import (
 	"fmt"
+	"github.com/SamusAranX/musicimage/hsv"
+	"github.com/SamusAranX/musicimage/musicoders/curves"
 	"image"
+	// "image/color"
 	"image/png"
 	"math"
-	"musicimage/hsv"
 	"os"
 )
 
 type TestEncoder struct {
-	Turns float64
-
-	Diameter   uint32
-	Separation float64
+	SharedOptions
 }
 
-func (e TestEncoder) Encode(OutputImage string) bool {
+func (e TestEncoder) Encode() error {
 	rect := image.Rect(0, 0, 2048, 2048)
-	img := image.NewRGBA(rect)
 
-	spiral := NewSpiral(e.Diameter, e.Separation)
-	spiral.Center = IntegralPoint{1024, 1024}
+	spiral := curves.NewSpiral(e.Diameter, e.Separation)
+	spiral.Center = curves.IntegralPoint{X: 1024, Y: 1024}
 
-	hsv := hsv.HSVColor{0, 255, 255}
+	hsv := hsv.HSVColor{H: 0, S: 100, V: 100}
+
+	var img image.RGBA
+	var img64 image.RGBA64
+
+	if e.DeepColor {
+		img64 = *image.NewRGBA64(rect)
+	} else {
+		img = *image.NewRGBA(rect)
+	}
 
 	var totalPixels uint32
-	for spiral.Theta < (math.Pi * e.Turns * 2) {
+	for spiral.Theta < (math.Pi * e.TestEncoderOptions.Turns * 2) {
 		p := spiral.Next()
-		img.Set(p.X, p.Y, hsv.RGBA())
 
-		hsv.H += 2
-		hsv.H %= 360
+		if e.DeepColor {
+			col := hsv.RGBA64()
+			img64.Set(p.X, p.Y, col)
+		} else {
+			col := hsv.RGBA()
+			img.Set(p.X, p.Y, col)
+		}
+
+		hsv.H += 60
 
 		totalPixels++
-
 	}
 
 	fmt.Printf("%d pixels drawn\n", totalPixels)
 
 	radRounded := int(math.Ceil(spiral.Radius))
-
 	subRect := image.Rect(spiral.Center.X-radRounded, spiral.Center.Y-radRounded, spiral.Center.X+radRounded, spiral.Center.Y+radRounded)
 
-	f, err := os.Create(OutputImage)
+	f, err := os.Create(e.OutFile)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 	defer f.Close()
 
-	png.Encode(f, img.SubImage(subRect))
+	if e.DeepColor {
+		png.Encode(f, img64.SubImage(subRect))
+	} else {
+		png.Encode(f, img.SubImage(subRect))
+	}
 
-	return true
+	return nil
 }

@@ -1,9 +1,13 @@
 package musicoders
 
-type EncoderOpts struct {
-	Turns float64 `short:"T" long:"turns" default:"100" description:"Only used for debugging"`
+type TestEncoderOpts struct {
+	EncoderOpts
 
-	// Mode string `short:"m" long:"mode" default:"spiral" description:"Placeholder"`
+	Turns float64 `short:"T" long:"turns" default:"100" description:"Only used for debugging"`
+}
+
+type EncoderOpts struct {
+	Mode string `short:"m" long:"mode" default:"spiral" description:"Unused"`
 }
 
 type DecoderOpts struct {
@@ -18,8 +22,9 @@ type SharedOptions struct {
 
 	Diameter   uint32  `short:"d" long:"diameter" default:"64" description:"Diameter of vinyl label, in pixels"`
 	Separation float64 `short:"s" long:"separation" default:"1" description:"Distance between spiral turns, in pixels"`
-	DeepColor  bool    `short:"D" long:"deep" description:"Construct 64 bit PNG to store more data in a single pixel"`
+	DeepColor  bool    `short:"D" long:"deep" description:"Use 64-bit pixels to store more data in a single pixel"`
 
-	EncoderOptions EncoderOpts `command:"encode" alias:"e" required:"yes" description:"Encode a WAV file into a PNG image"`
-	DecoderOptions DecoderOpts `command:"decode" alias:"d"  description:"Decode an image into a WAV file"`
+	EncoderOptions     EncoderOpts     `command:"encode" alias:"e" description:"Encode a WAV file into a PNG image"`
+	DecoderOptions     DecoderOpts     `command:"decode" alias:"d" description:"Decode an image into a WAV file"`
+	TestEncoderOptions TestEncoderOpts `command:"test" description:"Test the drawing code"`
 }
