@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/SamusAranX/musicimage/musicoders"
-	flags "github.com/jessevdk/go-flags"
 	"os"
-	// . "strings"
+
+	flags "github.com/jessevdk/go-flags"
+	"musicimage/encoders"
 )
 
 func main() {
-	opts := musicoders.SharedOptions{}
+	opts := encoders.SharedOptions{}
 	optsParser := flags.NewParser(&opts, flags.Default)
 	optsParser.SubcommandsOptional = false
 
@@ -20,21 +20,21 @@ func main() {
 
 	switch optsParser.Active.Name {
 	case "encode":
-		enc := musicoders.Encoder{opts}
+		enc := encoders.Encoder{opts}
 		if err := enc.Encode(); err != nil {
 			fmt.Println(err)
 		} else {
 			fmt.Println("Done!")
 		}
 	case "decode":
-		dec := musicoders.Decoder{opts}
+		dec := encoders.Decoder{opts}
 		if err := dec.Decode(); err != nil {
 			fmt.Println(err)
 		} else {
 			fmt.Println("Done!")
 		}
 	case "test":
-		testEnc := musicoders.TestEncoder{opts}
+		testEnc := encoders.TestEncoder{opts}
 		if err := testEnc.Encode(); err != nil {
 			fmt.Println(err)
 		} else {

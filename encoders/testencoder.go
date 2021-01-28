@@ -1,14 +1,15 @@
-package musicoders
+package encoders
 
 import (
 	"fmt"
-	"github.com/SamusAranX/musicimage/hsv"
-	"github.com/SamusAranX/musicimage/musicoders/curves"
 	"image"
 	// "image/color"
 	"image/png"
 	"math"
 	"os"
+
+	"musicimage/encoders/curves"
+	"musicimage/hsv"
 )
 
 type TestEncoder struct {
@@ -21,7 +22,7 @@ func (e TestEncoder) Encode() error {
 	spiral := curves.NewSpiral(e.Diameter, e.Separation)
 	spiral.Center = curves.IntegralPoint{X: 1024, Y: 1024}
 
-	hsv := hsv.HSVColor{H: 0, S: 100, V: 100}
+	hsv := hsv.Color{H: 0, S: 100, V: 100}
 
 	var img image.RGBA
 	var img64 image.RGBA64

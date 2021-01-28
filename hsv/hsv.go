@@ -9,12 +9,12 @@ import (
 // Hue is a double [0 - 360.0] specifying the color
 // Saturation is a double [0 - 100.0] specifying the strength of the color
 // Value is a double [0 - 100.0] specifying the brightness of the color
-type HSVColor struct {
+type Color struct {
 	H    float64
 	S, V float64
 }
 
-func (hsv HSVColor) rgba() (r, g, b float64) {
+func (hsv Color) rgba() (r, g, b float64) {
 	h := math.Mod(hsv.H, 360)
 	s := hsv.S / 100
 	v := hsv.V / 100
@@ -50,7 +50,7 @@ func (hsv HSVColor) rgba() (r, g, b float64) {
 	}
 }
 
-func (hsv HSVColor) RGBA() color.RGBA {
+func (hsv Color) RGBA() color.RGBA {
 	fr, fg, fb := hsv.rgba()
 	r := uint8(math.Round(fr * 0xff))
 	g := uint8(math.Round(fg * 0xff))
@@ -58,7 +58,7 @@ func (hsv HSVColor) RGBA() color.RGBA {
 	return color.RGBA{r, g, b, 0xff}
 }
 
-func (hsv HSVColor) RGBA64() color.RGBA64 {
+func (hsv Color) RGBA64() color.RGBA64 {
 	fr, fg, fb := hsv.rgba()
 	r := uint16(math.Round(fr * 0xffff))
 	g := uint16(math.Round(fg * 0xffff))

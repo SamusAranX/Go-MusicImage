@@ -1,16 +1,17 @@
-package musicoders
+package encoders
 
 import (
 	"errors"
 	"fmt"
-	"github.com/SamusAranX/musicimage/musicoders/curves"
-	wav "github.com/youpy/go-wav"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
 	"math"
 	"os"
+
+	wav "github.com/youpy/go-wav"
+	"musicimage/encoders/curves"
 )
 
 type Encoder struct {
