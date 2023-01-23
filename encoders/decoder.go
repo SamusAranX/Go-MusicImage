@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	_ "image/jpeg"
 	_ "image/png"
 	"math"
 	"os"
@@ -23,7 +24,7 @@ func (d Decoder) Decode() error {
 	}
 	defer imgFile.Close()
 
-	wavFile, err := os.Create(d.OutFile)
+	wavFile, err := os.Create(d.Positional.OutFile)
 	if err != nil {
 		return err
 	}
@@ -38,19 +39,21 @@ func (d Decoder) Decode() error {
 		colorDepth *= 2
 	}
 
-	bitsPerSample := d.DecoderOptions.BitDepth
-	channelNum := d.DecoderOptions.ChannelNum
-	sampleRate := d.DecoderOptions.SampleRate
-	spiral := curves.NewSpiral(d.Diameter, d.Separation)
+	bitsPerSample := uint16(d.BitDepth)
+	channelNum := uint16(1)
+	if d.IsStereo {
+		channelNum = 2
+	}
+	sampleRate := d.SampleRate
+
+	spiral := curves.NewSpiral(d.LabelDiameter, d.GrooveSeparation)
 	spiral.Center = curves.IntegralPoint{X: imgSize.X / 2, Y: imgSize.Y / 2}
 
 	sampleMask := uint64(math.Pow(2, float64(bitsPerSample)) - 1)
 
-	// allocate enough space for 10 minutes of 44100 Hz stereo audio
-	var numSamples uint32 = 2 * 10 * 60 * 44100
+	// allocate enough space for 5 minutes of 192000 Hz stereo audio, which should be enough for anything
+	var numSamples uint32 = 5 * 60 * 2 * 192000
 	var samples = make([]wav.Sample, numSamples)
-
-	// offset := int(math.Pow(2, float64(d.DecoderOptions.BitDepth)) / 2)
 
 	writer := wav.NewWriter(wavFile, numSamples, channelNum, sampleRate, bitsPerSample)
 
@@ -59,7 +62,7 @@ func (d Decoder) Decode() error {
 	var pixelInt uint64
 	var shiftedBy uint32
 	for {
-		p := spiral.Next()
+		p := spiral.NextIntegral()
 
 		col := img.At(p.X, p.Y)
 		_r, _g, _b, _a := col.RGBA()

@@ -19,10 +19,11 @@ type TestEncoder struct {
 func (e TestEncoder) Encode() error {
 	rect := image.Rect(0, 0, 2048, 2048)
 
-	spiral := curves.NewSpiral(e.Diameter, e.Separation)
+	spiral := curves.NewSpiral(e.LabelDiameter, e.GrooveSeparation)
 	spiral.Center = curves.IntegralPoint{X: 1024, Y: 1024}
 
 	hsv := hsv.Color{H: 0, S: 100, V: 100}
+	huePerPixel := 20.0
 
 	var img image.RGBA
 	var img64 image.RGBA64
@@ -34,8 +35,8 @@ func (e TestEncoder) Encode() error {
 	}
 
 	var totalPixels uint32
-	for spiral.Theta < (math.Pi * e.TestEncoderOptions.Turns * 2) {
-		p := spiral.Next()
+	for spiral.Theta < (math.Pi * e.TestTurns * 2) {
+		p := spiral.NextIntegral()
 
 		if e.DeepColor {
 			col := hsv.RGBA64()
@@ -45,17 +46,17 @@ func (e TestEncoder) Encode() error {
 			img.Set(p.X, p.Y, col)
 		}
 
-		hsv.H += 60
+		hsv.H += huePerPixel
 
 		totalPixels++
 	}
 
 	fmt.Printf("%d pixels drawn\n", totalPixels)
 
-	radRounded := int(math.Ceil(spiral.Radius))
+	radRounded := int(math.Ceil(spiral.Radius()))
 	subRect := image.Rect(spiral.Center.X-radRounded, spiral.Center.Y-radRounded, spiral.Center.X+radRounded, spiral.Center.Y+radRounded)
 
-	f, err := os.Create(e.OutFile)
+	f, err := os.Create(e.Positional.OutFile)
 	if err != nil {
 		return err
 	}
